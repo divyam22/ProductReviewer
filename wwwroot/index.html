@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SentimentIQ — Product Review Analyzer</title>
+  <meta name="description" content="Analyze product reviews from Reddit, Amazon, Play Store, Trustpilot & more. Get real-time sentiment analysis and overall ratings." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ═══════════ NAVBAR ═══════════ -->
+<nav class="navbar" id="navbar">
+  <div class="nav-inner">
+    <div class="nav-brand">
+      <div class="brand-icon">
+        <span class="material-icons-round">analytics</span>
+      </div>
+      <span class="brand-name">SentimentIQ</span>
+    </div>
+    <div class="nav-badge">Powered by AI Sentiment Engine</div>
+  </div>
+</nav>
+
+<!-- ═══════════ HERO ═══════════ -->
+<section class="hero" id="hero">
+  <div class="hero-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="grid-overlay"></div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span class="material-icons-round">auto_awesome</span>
+      Real-time Review Intelligence
+    </div>
+    <h1 class="hero-title">
+      Understand What <br/>
+      <span class="gradient-text">People Really Think</span>
+    </h1>
+    <p class="hero-subtitle">
+      Fetch & analyze product reviews from Reddit, Amazon, Play Store, Trustpilot and more —
+      powered by a custom VADER sentiment engine.
+    </p>
+
+    <!-- Search Bar -->
+    <div class="search-container" id="search-container">
+      <div class="search-bar" id="search-bar">
+        <span class="material-icons-round search-icon">search</span>
+        <input
+          type="text"
+          id="product-input"
+          class="search-input"
+          placeholder='Try "Samsung Galaxy S24" or "AirPods Pro 2"...'
+          autocomplete="off"
+          maxlength="200"
+        />
+        <button class="search-btn" id="search-btn" onclick="runAnalysis()">
+          <span class="btn-text">Analyze</span>
+          <span class="material-icons-round btn-icon">arrow_forward</span>
+        </button>
+      </div>
+      <div class="search-suggestions">
+        <span class="sugg-label">Try:</span>
+        <button class="sugg-chip" onclick="quickSearch('iPhone 15 Pro')">iPhone 15 Pro</button>
+        <button class="sugg-chip" onclick="quickSearch('Samsung Galaxy S24')">Samsung S24</button>
+        <button class="sugg-chip" onclick="quickSearch('Nike Air Max 270')">Nike Air Max</button>
+        <button class="sugg-chip" onclick="quickSearch('Spotify Premium')">Spotify</button>
+        <button class="sugg-chip" onclick="quickSearch('Sony WH-1000XM5')">Sony Headphones</button>
+      </div>
+    </div>
+
+    <!-- Source Pills -->
+    <div class="source-pills">
+      <div class="pill-label">Scraping reviews from:</div>
+      <div class="source-pill reddit"><span class="material-icons-round" style="font-size:14px">forum</span> Reddit</div>
+      <div class="source-pill amazon"><span class="material-icons-round" style="font-size:14px">shopping_cart</span> Amazon</div>
+      <div class="source-pill playstore"><span class="material-icons-round" style="font-size:14px">android</span> Play Store</div>
+      <div class="source-pill trustpilot"><span class="material-icons-round" style="font-size:14px">star</span> Trustpilot</div>
+      <div class="source-pill g2"><span class="material-icons-round" style="font-size:14px">business</span> G2</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ LOADING ═══════════ -->
+<section class="loading-section" id="loading-section" style="display:none">
+  <div class="loading-card">
+    <div class="loading-animation">
+      <div class="pulse-ring"></div>
+      <div class="pulse-ring delay-1"></div>
+      <div class="pulse-ring delay-2"></div>
+      <span class="material-icons-round loading-icon">psychology</span>
+    </div>
+    <h2 class="loading-title">Analyzing <span id="loading-product" class="gradient-text"></span></h2>
+    <p class="loading-subtitle">Fetching reviews from multiple sources...</p>
+    <div class="loading-steps">
+      <div class="step" id="step-reddit">
+        <span class="material-icons-round">forum</span>
+        <span>Scraping Reddit discussions...</span>
+        <div class="step-spinner"></div>
+      </div>
+      <div class="step" id="step-amazon">
+        <span class="material-icons-round">shopping_cart</span>
+        <span>Fetching Amazon reviews...</span>
+        <div class="step-spinner"></div>
+      </div>
+      <div class="step" id="step-playstore">
+        <span class="material-icons-round">android</span>
+        <span>Checking Play Store...</span>
+        <div class="step-spinner"></div>
+      </div>
+      <div class="step" id="step-web">
+        <span class="material-icons-round">language</span>
+        <span>Scanning Trustpilot & G2...</span>
+        <div class="step-spinner"></div>
+      </div>
+      <div class="step" id="step-ai">
+        <span class="material-icons-round">auto_awesome</span>
+        <span>Running sentiment analysis...</span>
+        <div class="step-spinner"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ RESULTS ═══════════ -->
+<section class="results-section" id="results-section" style="display:none">
+  <div class="results-container">
+
+    <!-- Back Button -->
+    <button class="back-btn" onclick="resetToSearch()">
+      <span class="material-icons-round">arrow_back</span>
+      New Search
+    </button>
+
+    <!-- ── Score Hero Card ── -->
+    <div class="score-hero-card" id="score-card">
+      <div class="score-hero-left">
+        <div class="score-product-name" id="result-product"></div>
+        <div class="score-label" id="result-rating-label"></div>
+        <div class="score-meta" id="result-meta"></div>
+        <div class="score-stars" id="result-stars"></div>
+        <div class="themes-section">
+          <div class="themes-label">Key Themes Mentioned</div>
+          <div class="themes-list" id="themes-list"></div>
+        </div>
+      </div>
+      <div class="score-hero-right">
+        <div class="big-score-ring" id="score-ring-container">
+          <svg class="ring-svg" viewBox="0 0 200 200">
+            <circle class="ring-bg" cx="100" cy="100" r="80" />
+            <circle class="ring-fill" id="ring-fill" cx="100" cy="100" r="80"
+              stroke-dasharray="502.65"
+              stroke-dashoffset="502.65" />
+          </svg>
+          <div class="ring-content">
+            <div class="ring-score" id="ring-score">0.0</div>
+            <div class="ring-max">/ 5.0</div>
+          </div>
+        </div>
+        <!-- Sentiment Bar -->
+        <div class="sentiment-breakdown">
+          <div class="breakdown-row">
+            <span class="breakdown-dot positive-dot"></span>
+            <span class="breakdown-label">Positive</span>
+            <div class="breakdown-bar-wrap">
+              <div class="breakdown-bar positive-bar" id="bar-positive"></div>
+            </div>
+            <span class="breakdown-pct" id="pct-positive"></span>
+          </div>
+          <div class="breakdown-row">
+            <span class="breakdown-dot neutral-dot"></span>
+            <span class="breakdown-label">Neutral</span>
+            <div class="breakdown-bar-wrap">
+              <div class="breakdown-bar neutral-bar" id="bar-neutral"></div>
+            </div>
+            <span class="breakdown-pct" id="pct-neutral"></span>
+          </div>
+          <div class="breakdown-row">
+            <span class="breakdown-dot negative-dot"></span>
+            <span class="breakdown-label">Negative</span>
+            <div class="breakdown-bar-wrap">
+              <div class="breakdown-bar negative-bar" id="bar-negative"></div>
+            </div>
+            <span class="breakdown-pct" id="pct-negative"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Source Summary Cards ── -->
+    <div class="section-title">
+      <span class="material-icons-round">hub</span>
+      Review Sources
+    </div>
+    <div class="source-cards" id="source-cards"></div>
+
+    <!-- ── Reviews Grid ── -->
+    <div class="reviews-header">
+      <div class="section-title" style="margin:0">
+        <span class="material-icons-round">rate_review</span>
+        What People Are Saying
+      </div>
+      <div class="filter-tabs">
+        <button class="filter-tab active" id="tab-all" onclick="filterReviews('all')">All</button>
+        <button class="filter-tab positive-tab" id="tab-positive" onclick="filterReviews('Positive')">😊 Positive</button>
+        <button class="filter-tab neutral-tab" id="tab-neutral" onclick="filterReviews('Neutral')">😐 Neutral</button>
+        <button class="filter-tab negative-tab" id="tab-negative" onclick="filterReviews('Negative')">😞 Negative</button>
+      </div>
+    </div>
+
+    <div class="reviews-grid" id="reviews-grid"></div>
+
+    <button class="load-more-btn" id="load-more-btn" onclick="loadMoreReviews()" style="display:none">
+      <span class="material-icons-round">expand_more</span>
+      Load More Reviews
+    </button>
+
+    <!-- Timestamp -->
+    <div class="analysis-footer" id="analysis-footer"></div>
+  </div>
+</section>
+
+<!-- ═══════════ ERROR ═══════════ -->
+<section class="error-section" id="error-section" style="display:none">
+  <div class="error-card">
+    <span class="material-icons-round error-icon">error_outline</span>
+    <h3 id="error-message">Something went wrong</h3>
+    <p id="error-detail">Please try again with a different product name.</p>
+    <button class="back-btn" onclick="resetToSearch()">
+      <span class="material-icons-round">arrow_back</span>
+      Try Again
+    </button>
+  </div>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>
