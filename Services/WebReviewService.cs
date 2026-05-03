@@ -4,7 +4,7 @@ using SentimentAnalysis.Models;
 namespace SentimentAnalysis.Services;
 
 /// <summary>
-/// Fetches product discussions from Twitter/X, Trustpilot, and G2 / Capterra
+/// Fetches product discussions from Trustpilot, G2, Capterra, Product Hunt, and Hacker News
 /// </summary>
 public class WebReviewService
 {
@@ -189,6 +189,144 @@ public class WebReviewService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error fetching G2 reviews for {Query}", productQuery);
+        }
+        return reviews;
+    }
+
+    public async Task<List<Review>> FetchCapterraReviewsAsync(string productQuery, int maxResults = 10)
+    {
+        var reviews = new List<Review>();
+        try
+        {
+            var url = $"https://www.capterra.com/spotlight/search?q={Uri.EscapeDataString(productQuery)}";
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0 Safari/537.36");
+
+            var response = await _http.SendAsync(request);
+            if (!response.IsSuccessStatusCode) return reviews;
+
+            var html = await response.Content.ReadAsStringAsync();
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+
+            var scriptNodes = doc.DocumentNode.SelectNodes("//script[@type='application/ld+json']");
+            if (scriptNodes != null)
+            {
+                foreach (var scriptNode in scriptNodes)
+                {
+                    try
+                    {
+                        using var jdoc = System.Text.Json.JsonDocument.Parse(scriptNode.InnerText);
+                        var root = jdoc.RootElement;
+                        if (root.TryGetProperty("review", out var reviewArr))
+                        {
+                            foreach (var r in reviewArr.EnumerateArray())
+                            {
+                                if (reviews.Count >= maxResults) break;
+                                var body = r.TryGetProperty("reviewBody", out var rb) ? rb.GetString() ?? "" : "";
+                                if (body.Length < 10) continue;
+
+                                reviews.Add(new Review
+                                {
+                                    Source = "Capterra",
+                                    Author = "Capterra User",
+                                    Text = body.Length > 400 ? body[..400] + "..." : body,
+                                    Url = url
+                                });
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching Capterra reviews for {Query}", productQuery);
+        }
+        return reviews;
+    }
+
+    public async Task<List<Review>> FetchProductHuntReviewsAsync(string productQuery, int maxResults = 10)
+    {
+        var reviews = new List<Review>();
+        try
+        {
+            var url = $"https://www.producthunt.com/search?q={Uri.EscapeDataString(productQuery)}";
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0.0.0 Safari/537.36");
+
+            var response = await _http.SendAsync(request);
+            if (!response.IsSuccessStatusCode) return reviews;
+
+            var html = await response.Content.ReadAsStringAsync();
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+
+            var commentNodes = doc.DocumentNode.SelectNodes("//div[contains(@class, 'comment_')]") ??
+                               doc.DocumentNode.SelectNodes("//div[contains(@class, 'styles_item_')]");
+
+            if (commentNodes != null)
+            {
+                foreach (var node in commentNodes)
+                {
+                    if (reviews.Count >= maxResults) break;
+                    var text = HtmlEntity.DeEntitize(node.InnerText.Trim());
+                    if (text.Length < 30) continue;
+
+                    reviews.Add(new Review
+                    {
+                        Source = "Product Hunt",
+                        Author = "PH Community",
+                        Text = text.Length > 400 ? text[..400] + "..." : text,
+                        Url = url
+                    });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching Product Hunt reviews for {Query}", productQuery);
+        }
+        return reviews;
+    }
+
+    public async Task<List<Review>> FetchHackerNewsReviewsAsync(string productQuery, int maxResults = 10)
+    {
+        var reviews = new List<Review>();
+        try
+        {
+            var url = $"https://hn.algolia.com/api/v1/search?query={Uri.EscapeDataString(productQuery)}&tags=comment&hitsPerPage={maxResults}";
+            var response = await _http.GetAsync(url);
+            if (!response.IsSuccessStatusCode) return reviews;
+
+            var json = await response.Content.ReadAsStringAsync();
+            using var jdoc = System.Text.Json.JsonDocument.Parse(json);
+            if (jdoc.RootElement.TryGetProperty("hits", out var hits))
+            {
+                foreach (var hit in hits.EnumerateArray())
+                {
+                    var commentText = hit.TryGetProperty("comment_text", out var ct) ? ct.GetString() ?? "" : "";
+                    if (string.IsNullOrEmpty(commentText)) continue;
+
+                    var cleanText = System.Text.RegularExpressions.Regex.Replace(commentText, "<.*?>", String.Empty);
+                    cleanText = HtmlEntity.DeEntitize(cleanText).Trim();
+
+                    if (cleanText.Length < 15) continue;
+
+                    reviews.Add(new Review
+                    {
+                        Source = "Hacker News",
+                        Author = hit.TryGetProperty("author", out var auth) ? auth.GetString() ?? "hn_user" : "hn_user",
+                        Text = cleanText.Length > 400 ? cleanText[..400] + "..." : cleanText,
+                        Url = $"https://news.ycombinator.com/item?id={hit.GetProperty("objectID").GetString()}"
+                    });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching Hacker News discussions for {Query}", productQuery);
         }
         return reviews;
     }

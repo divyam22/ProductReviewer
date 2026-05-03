@@ -27,6 +27,9 @@ const SOURCE_STYLES = {
   'Amazon':            { color: '#FF9900', bg: 'rgba(255,153,0,0.12)',  label: '📦' },
   'Trustpilot':        { color: '#00B67A', bg: 'rgba(0,182,122,0.12)', label: '★' },
   'G2':                { color: '#FF492C', bg: 'rgba(255,73,44,0.12)',  label: 'G2' },
+  'Capterra':          { color: '#002F56', bg: 'rgba(0,47,86,0.12)',   label: 'C' },
+  'Product Hunt':      { color: '#DA552F', bg: 'rgba(218,85,47,0.12)',  label: 'PH' },
+  'Hacker News':       { color: '#FF6600', bg: 'rgba(255,102,0,0.12)', label: 'HN' },
 };
 
 function getSourceStyle(source) {
@@ -104,7 +107,7 @@ function animateLoadingSteps() {
   const query = productInput.value.trim();
   $('loading-product').textContent = query;
 
-  const steps = ['step-reddit','step-amazon','step-playstore','step-web','step-ai'];
+  const steps = ['step-reddit','step-amazon','step-playstore','step-web','step-tech','step-ai'];
   steps.forEach(id => {
     const el = $(id);
     el.classList.remove('active','done');
@@ -240,7 +243,6 @@ function renderThemes(themes) {
   ).join('');
 }
 
-// ── Source Cards ──────────────────────────────────────────
 function renderSourceCards(sources) {
   const container = $('source-cards');
   if (!sources.length) {
@@ -250,16 +252,18 @@ function renderSourceCards(sources) {
 
   container.innerHTML = sources.map((s, i) => {
     const style  = getSourceStyle(s.source);
-    const sentClass = s.sentiment.toLowerCase();
-    const stars  = (s.averageScore * 5).toFixed(1);
+    const sentClass = s.sentiment.toLowerCase().replace(/\s+/g, '-');
+    const hasData = s.reviewCount > 0;
+    const stars  = hasData ? (s.averageScore * 5).toFixed(1) : '—';
+    
     return `
-      <div class="source-card" style="animation-delay:${i * 0.08}s">
-        <div class="source-card-icon" style="background:${style.bg};color:${style.color}">
+      <div class="source-card ${hasData ? '' : 'no-data'}" style="animation-delay:${i * 0.08}s">
+        <div class="source-card-icon" style="background:${hasData ? style.bg : 'rgba(255,255,255,0.03)'};color:${hasData ? style.color : 'var(--text-3)'}">
           ${getSourceIcon(s.source)}
         </div>
         <div class="source-card-name">${s.source}</div>
         <div class="source-card-count">${s.reviewCount} review${s.reviewCount !== 1 ? 's' : ''}</div>
-        <div class="source-card-score" style="color:${style.color}">${stars}</div>
+        <div class="source-card-score" style="color:${hasData ? style.color : 'var(--text-3)'}">${stars}</div>
         <div class="source-card-sentiment sent-${sentClass}">${s.sentiment}</div>
       </div>`;
   }).join('');
@@ -271,6 +275,9 @@ function getSourceIcon(source) {
   if (source.startsWith('Amazon'))      return '<span class="material-icons-round" style="font-size:20px">shopping_bag</span>';
   if (source.startsWith('Trustpilot'))  return '<span class="material-icons-round" style="font-size:20px">star_rate</span>';
   if (source.startsWith('G2'))          return '<span style="font-size:14px;font-weight:700">G2</span>';
+  if (source.startsWith('Capterra'))    return '<span class="material-icons-round" style="font-size:20px">business_center</span>';
+  if (source.includes('Product Hunt'))  return '<span class="material-icons-round" style="font-size:20px">rocket_launch</span>';
+  if (source.includes('Hacker News'))   return '<span class="material-icons-round" style="font-size:20px">forum</span>';
   return '<span class="material-icons-round" style="font-size:20px">language</span>';
 }
 

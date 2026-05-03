@@ -18,6 +18,9 @@ public class ReviewAggregatorService
         ["Amazon"]           = ("amazon", "#FF9900"),
         ["Trustpilot"]       = ("star", "#00B67A"),
         ["G2"]               = ("g2", "#FF492C"),
+        ["Capterra"]         = ("business_center", "#002F56"),
+        ["Product Hunt"]     = ("rocket_launch", "#DA552F"),
+        ["Hacker News"]      = ("forum", "#FF6600"),
     };
 
     public ReviewAggregatorService(
@@ -47,11 +50,19 @@ public class ReviewAggregatorService
             _playStore.FetchReviewsAsync(productQuery, 15),
             _amazon.FetchReviewsAsync(productQuery, 15),
             _webReviews.FetchTrustpilotReviewsAsync(productQuery, 10),
-            _webReviews.FetchG2ReviewsAsync(productQuery, 10)
+            _webReviews.FetchG2ReviewsAsync(productQuery, 10),
+            _webReviews.FetchCapterraReviewsAsync(productQuery, 10),
+            _webReviews.FetchProductHuntReviewsAsync(productQuery, 10),
+            _webReviews.FetchHackerNewsReviewsAsync(productQuery, 10)
         };
 
         var results = await Task.WhenAll(tasks);
-        var allReviews = results.SelectMany(r => r).ToList();
+        
+        // Combine results and eliminate duplicate reviews by text content
+        var allReviews = results.SelectMany(r => r)
+            .GroupBy(r => r.Text.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
 
         _logger.LogInformation("Fetched {Count} total reviews", allReviews.Count);
 
@@ -77,21 +88,30 @@ public class ReviewAggregatorService
             review.SentimentScore = result.Score;
         }
 
-        // Build source summaries
-        var sourceSummaries = allReviews
-            .GroupBy(r => NormalizeSource(r.Source))
-            .Select(g =>
+        // Build source summaries (including sources with 0 reviews)
+        var sourceSummaries = _sourceStyles
+            .Select(s =>
             {
-                var avgScore = g.Average(r => r.SentimentScore);
-                var style = GetSourceStyle(g.Key);
+                var sourceName = s.Key;
+                var style = s.Value;
+                var sourceReviews = allReviews
+                    .Where(r => NormalizeSource(r.Source).Equals(sourceName, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                double avgScore = 0.5; // Default neutral for 0 reviews
+                if (sourceReviews.Count > 0)
+                {
+                    avgScore = sourceReviews.Average(r => r.SentimentScore);
+                }
+
                 return new SourceSummary
                 {
-                    Source = g.Key,
+                    Source = sourceName,
                     Icon = style.Icon,
                     Color = style.Color,
-                    ReviewCount = g.Count(),
+                    ReviewCount = sourceReviews.Count,
                     AverageScore = Math.Round(avgScore, 3),
-                    Sentiment = avgScore >= 0.6 ? "Positive" : avgScore <= 0.4 ? "Negative" : "Neutral"
+                    Sentiment = sourceReviews.Count == 0 ? "No Data" : (avgScore >= 0.6 ? "Positive" : avgScore <= 0.4 ? "Negative" : "Neutral")
                 };
             })
             .OrderByDescending(s => s.ReviewCount)
